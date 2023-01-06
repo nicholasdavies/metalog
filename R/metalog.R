@@ -78,13 +78,22 @@
 #'  \item{\code{"cvx"}: Convex optimization, using the R package \code{CVXR}.
 #'  This attempts to find a feasible metalog distribution that approximates the
 #'  provided data as closely as possible.}
+#'  \item{\code{"rf"}: Root finding, using the R package \code{rootSolve}.
+#'  This attempts to find a feasible metalog distribution that approximates the
+#'  provided data as closely as possible.}
+#'  \item{\code{"exact"}: Exact search. First, this will try to use the
+#'  symmetric-percentile triplet method if that is appropriate. Next, this will
+#'  try to find a metalog distribution fitting the supplied quantiles and
+#'  moments exactly, starting with an \code{n}-term metalog to an
+#'  \code{n + 5}-term metalog, using ordinary least squares. If that fails, it
+#'  will try again using root finding.}
 #' }
 #' Character values for \code{method} can be abbreviated.
 #' @param mu If non-NULL, a vector specifying the moments of the distribution to
 #' be fitted. The first entry is the mean, the second is the standard deviation,
-#' and the *k*th entry (for *k* > 2) is the *k*th standardized moment. If a
-#' moment is \code{NA}, then it is 'skipped'; i.e. mu = c(NA, 1) specifies a
-#' standard deviation of 1 but leaves the mean unspecified.
+#' and the \eqn{k}th entry (for \eqn{k > 2}) is the \eqn{k}th standardized moment.
+#' If a moment is \code{NA}, then it is 'skipped'; e.g. mu = c(NA, 1) specifies
+#' a standard deviation of 1 but leaves the mean unspecified.
 #' @param refine Whether to refine the cached version of the metalog quantile
 #' function and PDF. This is enabled in order to slightly speed up calls to
 #' \link{pmlog} and \link{dmlog}, although testing has revealed that this
@@ -126,9 +135,9 @@
 mlog = function(x, y = "data", bounds = c(-Inf, Inf), n = NULL,
     mu = NULL, method = "auto", refine = TRUE, check_validity = TRUE)
 {
-    # Requirements: x must be numeric, x must have at least 2 points
-    if (!is.numeric(x) || length(x) < 2) {
-        stop("x must be a vector with 2 or more points.")
+    # Requirements: x and mu must be numeric
+    if ((!is.null(x) && !is.numeric(x)) || (!is.null(mu) && !is.numeric(mu))) {
+        stop("x and mu must be numeric.")
     }
 
     # Requirements on bounds
@@ -138,12 +147,17 @@ mlog = function(x, y = "data", bounds = c(-Inf, Inf), n = NULL,
 
     # Extract some arguments
     if (is.character(y)) {
-        y = match.arg(tolower(y), c("bin", "data", "coeff"));
+        y = match.arg(tolower(y), c("bin", "data", "coeff", "moments"));
     }
     bl = bounds[1];
     bu = bounds[2];
     nmu = sum(!is.na(mu));
     npts = length(x) + nmu;
+
+    # Requirements: x and mu together must have at least 2 points
+    if (npts < 2) {
+        stop("Must supply at least 2 points to fit to.")
+    }
 
     # Transform quantiles for fitting
     x0 = x;
@@ -201,6 +215,19 @@ mlog = function(x, y = "data", bounds = c(-Inf, Inf), n = NULL,
                 n = length(x);
             } else if (n != length(x)) {
                 stop("supplied ", length(x), " coefficients, but specified n = ", n);
+            }
+        } else if (identical(y, "moments")) {
+            # TODO this option should be auto-detected
+            y = NULL;
+
+            # Sensible default for n
+            if (is.null(n)) {
+                n = npts;
+            }
+
+            # Sensible default for method
+            if (method == "auto") {
+                method = "exact";
             }
         }
     } else if (is.numeric(y)) {

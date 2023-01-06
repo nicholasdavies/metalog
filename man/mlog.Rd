@@ -9,8 +9,8 @@ mlog(
   y = "data",
   bounds = c(-Inf, Inf),
   n = NULL,
-  mean = NULL,
-  method = "any",
+  mu = NULL,
+  method = "auto",
   refine = TRUE,
   check_validity = TRUE
 )
@@ -57,8 +57,11 @@ Character values for \code{y} can be abbreviated.}
 metalog distribution with \eqn{n} terms can, in principle, fit \eqn{n}
 quantiles exactly.}
 
-\item{mean}{If non-NULL, the mean of the distribution to be fitted. Only
-works for bounded distributions.}
+\item{mu}{If non-NULL, a vector specifying the moments of the distribution to
+be fitted. The first entry is the mean, the second is the standard deviation,
+and the \eqn{k}th entry (for \eqn{k > 2}) is the \eqn{k}th standardized moment.
+If a moment is \code{NA}, then it is 'skipped'; e.g. mu = c(NA, 1) specifies
+a standard deviation of 1 but leaves the mean unspecified.}
 
 \item{method}{Which method to use in fitting the metalog distribution (when
 \code{y} is something other than \code{"coeff"}). One of:
@@ -77,6 +80,15 @@ works for bounded distributions.}
  \item{\code{"cvx"}: Convex optimization, using the R package \code{CVXR}.
  This attempts to find a feasible metalog distribution that approximates the
  provided data as closely as possible.}
+ \item{\code{"rf"}: Root finding, using the R package \code{rootSolve}.
+ This attempts to find a feasible metalog distribution that approximates the
+ provided data as closely as possible.}
+ \item{\code{"exact"}: Exact search. First, this will try to use the
+ symmetric-percentile triplet method if that is appropriate. Next, this will
+ try to find a metalog distribution fitting the supplied quantiles and
+ moments exactly, starting with an \code{n}-term metalog to an
+ \code{n + 5}-term metalog, using ordinary least squares. If that fails, it
+ will try again using root finding.}
 }
 Character values for \code{method} can be abbreviated.}
 
